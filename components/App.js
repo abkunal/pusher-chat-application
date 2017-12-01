@@ -102,7 +102,7 @@ class App extends React.Component {
         // xhr.send();
 
         const tokenProvider = new Chatkit.TokenProvider({
-            url: "http://localhost:3000/token",
+            url: "/token",
             userId: this.state.username
         });
 
