@@ -16,14 +16,18 @@ class Message extends React.Component {
         }
 
         return (
-            <div className="card message">
-                <div className="card-title text-right">You</div>
-                <div className="card-body">
-                    {this.props.text}
+            <div className="row mr-1">
+                <div className="offset-sm-4 col-sm-8 card message" >
+                    <div className="card-header text-right" style={{marginLeft: -15 + 'px', marginRight: -15 + 'px'}}>
+                        <strong>You</strong>
+                    </div>
+                    <div className="card-body">
+                        {this.props.text}
+                    </div>
+                    <span className="mb-1 text-right">
+                        <span className="badge badge-secondary">{time}</span> <span className="badge badge-primary">{this.props.status}</span>
+                    </span>
                 </div>
-                <span className="text-right">
-                    {time} {this.props.status}
-                </span>
             </div>
         );
     }
@@ -37,14 +41,18 @@ class Message extends React.Component {
         }
 
         return (
-            <div className="card message">
-                <div className="card-title">{this.props.sender}</div>
-                <div className="card-body">
-                    {this.props.text}
+            <div className="row">
+                <div className="ml-3 col-sm-8 card message">
+                    <div className="card-header" style={{marginLeft: -15 + 'px', marginRight: -15 + 'px'}}>
+                        <strong>{this.props.sender}</strong>
+                    </div>
+                    <div className="card-body">
+                        {this.props.text}
+                    </div>
+                    <span className="mb-1 text-right">
+                        <span className="badge badge-secondary">{time}</span> <span className="badge badge-primary">{this.props.status}</span>
+                    </span>
                 </div>
-                <span className="text-right">
-                    {time} {this.props.status}
-                </span>
             </div>
         )
     }

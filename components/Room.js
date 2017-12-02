@@ -12,16 +12,30 @@ class Room extends React.Component {
     render() {
         if (this.props.selectedIndex === this.props.index) {
             return (
-                <div className="mb-1 card text-primary" style={{cursor: 'pointer'}}
+                <div className="mb-1 card alert alert-primary" style={{cursor: 'pointer'}}
                      onClick={this.selected.bind(this)}>
-                    <div className="card-body">{this.props.room.name}</div>
+                    <div className="row card-body">
+                        <div className="col-sm-8">
+                            <strong>{this.props.room.name}</strong>
+                        </div>
+                        <div  className="col-sm-4 text-right">
+                            <span className="badge badge-secondary">{this.props.unread}</span>
+                        </div>
+                    </div>
                 </div>
             )
         } else {
             return (
                 <div className="mb-1 card" style={{cursor: 'pointer'}}
                      onClick={this.selected.bind(this)}>
-                    <div className="card-body">{this.props.room.name}</div>
+                    <div className="row card-body">
+                        <div className="col-sm-8">
+                            {this.props.room.name}
+                        </div>
+                        <div  className="col-sm-4 text-right">
+                            <span className="badge badge-secondary">{this.props.unread}</span>
+                        </div>
+                    </div>
                 </div>
             );
         }
