@@ -10,6 +10,7 @@ class Room extends React.Component {
     }
 
     render() {
+        // template for currently selected rooms
         if (this.props.selectedIndex === this.props.index) {
             return (
                 <div className="mb-1 card alert alert-primary" style={{cursor: 'pointer'}}
@@ -24,6 +25,7 @@ class Room extends React.Component {
                     </div>
                 </div>
             )
+        // template for unselected rooms
         } else {
             return (
                 <div className="mb-1 card" style={{cursor: 'pointer'}}

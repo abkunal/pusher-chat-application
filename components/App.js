@@ -12,61 +12,29 @@ class App extends React.Component {
         super(props);
 
         this.state = {
-            username: '',
-            userRooms: [],
-            joinableRooms: [],
-            users: [],
-            user: null,
-            selected: 0,
-            currentMessage: '',
-            messages: [],
-            roomName: '',
-            createdAt: new Date(),
-            newUser: '',
-            private: false,
-            userStatus: '',
-            reload: 'none'
+            username: '',          // username of the user
+            userRooms: [],         // all publicly visible rooms and private rooms of current user
+            user: null,            // current user
+            selected: 0,           // indicates which user is currently selected
+            currentMessage: '',    // stores the message currently being typed
+            messages: [],          // stores the messages across the rooms
+            roomName: '',          // name of room to be created by user
+            createdAt: new Date(), // the time at which user came to chatting
+            newUser: '',           // username of the user to be added
+            private: false,        // indicates whether the new room will be private or public
+            userStatus: '',        // to show the loading process as user comes to chat
+            reload: 'none'         // indicates to user when to reload
         };
 
+        // bindings for helper functions
         this.setupPusher = this.setupPusher.bind(this);
         this.getJoinableRooms = this.getJoinableRooms.bind(this);
         this.selected = this.selected.bind(this);
         this.subscribeToRoom = this.subscribeToRoom.bind(this);
-        this.fetchMessages = this.fetchMessages.bind(this);
         this.addRoom = this.addRoom.bind(this);
     }
 
-    handleRoomNameChange(event) {
-        this.setState({roomName: event.target.value});
-    }
-
-    handleCheckbox(event) {
-        console.log(this.state.private);
-        this.setState({private: event.target.checked});
-    }
-
-    addRoomHandler(event) {
-        event.preventDefault();
-        if (this.state.roomName.trim() !== '') {
-            this.addRoom(this.state.roomName);
-            this.setState({roomName: ''});
-        }
-    }
-
-    handleUsernamechange(event) {
-        this.setState({username: event.target.value});
-    }
-
-    handleSubmit(event) {
-        event.preventDefault();
-
-        // username and Name has been given by the user
-        if (this.state.username.trim() !== "") {
-            this.setState({userStatus: 'Connecting...'});
-            this.setupPusher();
-        }
-    }
-
+    // show initial modal to ask for username
     componentDidMount() {
         // set up modal
         $("#myModal").modal({
@@ -79,30 +47,101 @@ class App extends React.Component {
         $("#myModal").modal('show');
     }
 
+    handleRoomNameChange(event) {
+        this.setState({roomName: event.target.value});
+    }
+
+    handleCheckbox(event) {
+        console.log(this.state.private);
+        this.setState({private: event.target.checked});
+    }
+
+    handleUsernameChange(event) {
+        this.setState({username: event.target.value});
+    }
+
+    // user provides the username
+    handleSubmit(event) {
+        event.preventDefault();
+
+        // username has been given by the user
+        if (this.state.username.trim() !== "") {
+            this.setState({userStatus: 'Connecting...'});
+
+            // fetch user information from pusher servers
+            this.setupPusher();
+        }
+    }
+
+    handleCurrentMessage(event) {
+        this.setState({currentMessage: event.target.value})
+    }
+
+    handleAddUser(event) {
+        this.setState({newUser: event.target.value});
+    }
+
+    // user creates a room
+    addRoomHandler(event) {
+        event.preventDefault();
+        if (this.state.roomName.trim() !== '') {
+            this.addRoom(this.state.roomName);
+            this.setState({roomName: ''});
+        }
+    }
+
+    // create a room
     addRoom(roomName) {
         console.log('add room ', roomName);
         var that = this;
         this.state.user.createRoom({name: roomName, private: this.state.private},
             (room) => {
-                //console.log('created public room called ', room.name);
-                let rooms = that.state.userRooms;
-                rooms.push(room);
-                let messages = that.state.messages;
-                messages.push([]);
-                that.setState({userRooms: rooms, messages: messages});
                 that.subscribeToRoom(room);
-                that.removeDuplicates();
             }, (error) => {
                 //console.log('Error creating room ', error);
             });
     }
 
+    // user adds some other user to a room
+    addUserToRoom(event) {
+        event.preventDefault();
+        var that = this;
 
+        // validate username
+        if (this.state.newUser.trim() !== '') {
+            let newUser = this.state.newUser;
+
+            this.state.user.addUser(
+                newUser,
+                this.state.userRooms[this.state.selected].id,
+                () => {
+                    // inform that a user has been added
+                    let messages = that.state.messages;
+                    try {
+                        messages[that.state.selected].push({
+                            text: `${this.state.user.id} added ${newUser} to room`,
+                            isAlert: true
+                        });
+                    } catch (e) {
+                        messages[that.state.selected] = [{
+                            text: `${this.state.user.id} added ${newUser} to room`,
+                            isAlert: true
+                        }];
+                    }
+                    that.setState({messages: messages});
+                },
+                (error) => {
+                    console.log(`Error adding ${newUser} to room ${this.state.userRooms[this.state.selected].id}: ${error}`);
+                }
+            );
+            this.setState({newUser: ''});
+        }
+
+    }
+
+    // create a new user if necessary and connect to Chatkit Server
     setupPusher() {
         // create a user and connect to chat server
-        console.log('executed');
-
-
         const tokenProvider = new Chatkit.TokenProvider({
             url: "/token",
             userId: this.state.username
@@ -116,66 +155,18 @@ class App extends React.Component {
         var that = this;
         chatManager.connect({
             delegate: {
+                // when the current user is added to a room by some other user
                 addedToRoom: (room) => {
-                    console.log('Added to room ' + room.name);
-                    let index  = -1;
-                    let rooms = that.state.userRooms;
-                    let messages= that.state.messages;
-                    for (let i = 0; i < rooms.length; i++) {
-                        if (rooms[i].id === room.id) {
-                            index = i;
-                            break;
-                        }
-                    }
-                    if (index === -1) {
-                        rooms.push(room);
-                        console.log('first one', messages);
-                        messages.push([{isAlert: true, text: 'You have been added to ' + room.name}]);
-                        that.setState({userRooms: rooms, messages: messages});
-                        that.subscribeToRoom(room);
-                    } else {
-                        console.log('second one', messages);
-                        try {
-                            messages[index].push({isAlert: true, text: 'You have been added to ' + room.name});
-                        } catch (e) {
-                            messages[index] = [{isAlert: true, text: 'You have been added to ' + room.name}];
-                        }
-                        that.setState({messages: messages});
-                        that.subscribeToRoom(room);
-                    }
-                },
-                // userCameOnline: (user) => {
-                //     console.log(`user ${user.id} came online`);
-                //     let messages = that.state.messages;
-                //     console.log('userCameOnline ', messages);
-                //     for (let i = 0; i < that.state.userRooms.length; i++) {
-                //         if (that.state.userRooms[i].userIds.indexOf(user.id) !== -1) {
-                //             console.log(i);
-                //             messages[i].push({isAlert: true, text: `${user.id} came online`});
-                //         }
-                //     }
-                //     that.setState({messages: messages});
-                //
-                // },
-                // userWentOffline: (user) => {
-                //     console.log(`user ${user.id} went offline`);
-                //     let messages = that.state.messages;
-                //     console.log('userWentOffline ', messages);
-                //     for (let i = 0; i < that.state.userRooms.length; i++) {
-                //         if (that.state.userRooms[i].userIds.indexOf(user.id) !== -1) {
-                //             console.log(i);
-                //             messages[i].push({isAlert: true, text: `${user.id} went offline`});
-                //         }
-                //     }
-                //     that.setState({messages: messages});
-                //
-                // }
+                    that.subscribeToRoom(room);
+                }
             },
+            // username entered by the user is valid,
             onSuccess: (currentUser) => {
-                console.log('user: ', currentUser);
+                //console.log('user: ', currentUser);
                 this.setState({userStatus: 'Connected'});
                 $("#myModal").modal("hide");
 
+                // create messages array to store messages
                 let messages = [];
                 for (let i = 0; i < currentUser.rooms.length; i++) {
                     messages.push([]);
@@ -185,69 +176,43 @@ class App extends React.Component {
                     userRooms: currentUser.rooms,
                     messages: messages,
                 });
+
+                // subscribe user to all the rooms of which he/she is a member
                 for (let i = 0; i < currentUser.rooms.length; i++) {
                    that.subscribeToRoom(currentUser.rooms[i]);
                 }
                 this.setState({createdAt: new Date()});
 
-                // let arr = ['three', ];
-                // for(let i = 0; i < arr.length; i++) {
-                //     currentUser.createRoom(
-                //         {
-                //             name: arr[i],
-                //         },
-                //         (room) => {
-                //             console.log(`Created public room called ${room.name}`);
-                //         },
-                //         (error) => {
-                //             console.log(`Error creating room ${error}`);
-                //         }
-                //     );
-                // }
-
-
+                // get all the public rooms of which user is not a member
                 that.getJoinableRooms();
-                // currentUser.getJoinableRooms(
-                //     (rooms) => {
-                //         console.log('Rooms: ', rooms);
-                //     },
-                //     (error) => {
-                //         console.log(`Error getting joinable rooms: ${err}`);
-                //     }
-                // );
-            },
-            onError: (error) => {
-                //console.log(error);
-                //console.log('some error occured, please refresh the page');
 
+            },
+            // username doesn't exist, so create a user with the given username
+            onError: (error) => {
                 that.setState({userStatus: 'Creating user, please wait...'});
 
                 let xhr = new XMLHttpRequest();
                 xhr.open('GET', '/user/?nickname=' + that.state.username);
                 xhr.onreadystatechange = () => {
                     if (xhr.status === 200 && xhr.readyState === 4) {
-                        //console.log('response: ', xhr.response);
+                        // user created sucessfully, refresh page to continue
                         if (xhr.response === 'success') {
                             $("#modalBody").html(`Reload the page and use the username ${that.state.username} to continue`);
-                            // that.setState({userStatus: 'User created, reload the page and enter the username - ' + that.state.username + ' to continue'});
-                            // that.setState({reload: 'inherit'});
                         }
                     }
                 }
                 xhr.send();
             }
         });
-
-
-
     }
 
+    // get all public rooms of which user is not a part
     getJoinableRooms() {
         var that = this;
         this.state.user.getJoinableRooms(
             (rooms) => {
-                console.log('rooms: ', rooms);
 
+                // store rooms and message
                 let userRooms = that.state.userRooms;
                 let messages = that.state.messages;
                 for (let i = 0; i < rooms.length; i++) {
@@ -263,25 +228,19 @@ class App extends React.Component {
                         messages.push([]);
                     }
                 }
-                console.log('Joinable rooms messages: ', messages);
                 that.setState({userRooms: userRooms,messages: messages});
-                // for(let i = 0; i < rooms.length; i++) {
-                //     this.subscribeToRoom(rooms[i]);
-                // }
             },
             (error) => {
                 console.log('error getting rooms: ', error);
             });
     }
 
+    // user joins a room by clicking on the room in the rooms tab
     joinRoom(roomId, index) {
-        console.log('joinRoom');
         var that = this;
         this.state.user.joinRoom(
             roomId,
             (room) => {
-                //console.log(`Joined room with ID: ${room.id}`);
-
                 let messages = that.state.messages;
                 messages[index] = [{text: 'Room joined', isAlert: true}];
 
@@ -291,13 +250,13 @@ class App extends React.Component {
                 this.subscribeToRoom(this.state.userRooms[index]);
             },
             (error) => {
-                //console.log(`Error joining room ${roomId}: ${error}`);
+                console.log(`Error joining room ${roomId}: ${error}`);
             }
         );
     }
 
+    // user has clicked on a room and hence selected it
     selected(index) {
-        console.log('selected');
         // show selected room messages
         let rooms = this.state.userRooms;
         rooms[this.state.selected].selected = false;
@@ -308,9 +267,7 @@ class App extends React.Component {
 
         // whether user belong to this room or not
         let present = this.state.userRooms[index].userIds.indexOf(this.state.user.id);
-
         if (present === -1) {
-            //console.log('not a member');
 
             // show joining room message to the user while joining room
             let messages = this.state.messages;
@@ -320,38 +277,11 @@ class App extends React.Component {
         }
     }
 
-
-    fetchMessages(room, index) {
-        console.log('fetching messages');
-        var that = this;
-        this.state.user.fetchMessagesFromRoom(
-            room,
-            (messages) => {
-                let allMessages = that.state.messages;
-                allMessages[index] = messages;
-                //console.log('messages: ', messages);
-                that.setState({messages: allMessages});
-            },
-            (error) => {
-                //console.log('error fetching messages: ');
-                //console.log('error: ', error);
-                let allMessages = that.state.messages;
-                allMessages[index] = error;
-                that.setState({messages: allMessages});
-            }
-        )
-    }
-
-    // TO DO NEXT
-    // ADD FEATURE TO CREATE NEW ROOMS
-    // SHOW ALL ROOMS, EVEN THOSE WHICH HAVE NOT JOINED
-    // WHEN CLICKED ON NOT JOINED, SEND REQUEST TO JOIN THEM
-    // NOTIFY WHEN GET A NEW MESSAGE
-
+    // send message to the currently selected group
     sendMessage(event) {
         event.preventDefault();
-        console.log('sending message');
 
+        // validate message
         if (this.state.currentMessage.trim() !== '') {
             if (this.state.userRooms[this.state.selected].length === 1) {
                 if (this.state.userRooms[this.state.selected][0].isAlert === true &&
@@ -392,7 +322,6 @@ class App extends React.Component {
             // add message to the specified
             this.state.user.addMessage(message, that.state.userRooms[that.state.selected],
                 (messageId) => {
-                    console.log(`Added message to ${that.state.userRooms[that.state.selected].name}`);
 
                     // message has been sent, update status of message
                     let allMessages = that.state.messages;
@@ -405,8 +334,8 @@ class App extends React.Component {
                         status: 'sent',
                         createdAt: new Date().toISOString()
                     };
-                    allMessages[that.state.selected][index] = currentMsg;
 
+                    allMessages[that.state.selected][index] = currentMsg;
                     that.setState({messages: allMessages});
                 },
                 (error) => {
@@ -429,16 +358,14 @@ class App extends React.Component {
         }
     }
 
+    // subscribe to the given room to get messages
     subscribeToRoom(room) {
-        //console.log('subscribeToRoom');
         var that = this;
         this.state.user.subscribeToRoom(
             room,
             {
                 newMessage: (message) => {
-                    console.log(`Received new message ${message.text} in room ${room.name}`);
-
-                    //console.log(new Date(message.createdAt), that.state.createdAt);
+                    // fetch older messages
                     if (new Date(message.createdAt) < that.state.createdAt) {
                         let messages = that.state.messages;
                         for (let i = 0; i < that.state.userRooms.length; i++) {
@@ -452,48 +379,47 @@ class App extends React.Component {
                             }
                         }
                         that.setState({messages: messages});
+                    // show new messages in realtime
                     } else if (message.sender.id !== that.state.user.id) {
 
-                            // add message to list of messages to display
-                            // display notification
+                        // play notification sound
                         document.getElementById('notificationSound').play();
-                        if (room.id !== that.state.userRooms[that.state.selected].id) {
 
-                                // play notification sound
-                                //document.getElementById('notificationSound').play();
-                                let index = -1;
-                                let rooms = that.state.userRooms;
-                                for (let i = 0; i < rooms.length; i++) {
-                                    if (rooms[i].id === room.id) {
-                                        if (rooms[i].unread) {
-                                            rooms[i].unread += 1;
-                                        } else {
-                                            rooms[i].unread = 1;
-                                        }
-                                        index = i;
-                                        break;
+                        // show number of unread messages
+                        if (room.id !== that.state.userRooms[that.state.selected].id) {
+                            let index = -1;
+                            let rooms = that.state.userRooms;
+                            for (let i = 0; i < rooms.length; i++) {
+                                if (rooms[i].id === room.id) {
+                                    if (rooms[i].unread) {
+                                        rooms[i].unread += 1;
+                                    } else {
+                                        rooms[i].unread = 1;
                                     }
-                                }
-                                that.setState({userRooms: rooms});
-                            }
-                            let messages = that.state.messages;
-                            for (let i = 0; i < that.state.userRooms.length; i++) {
-                                if (that.state.userRooms[i].id === room.id) {
-                                    try {
-                                        messages[i].push(message);
-                                    } catch (e) {
-                                        messages[i] = [message];
-                                    }
+                                    index = i;
                                     break;
                                 }
                             }
-                            that.setState({messages: messages});
+                            that.setState({userRooms: rooms});
+                        }
+                        // add message to list of messages to display
+                        let messages = that.state.messages;
+                        for (let i = 0; i < that.state.userRooms.length; i++) {
+                            if (that.state.userRooms[i].id === room.id) {
+                                try {
+                                    messages[i].push(message);
+                                } catch (e) {
+                                    messages[i] = [message];
+                                }
+                                break;
+                            }
+                        }
+                        that.setState({messages: messages});
                     }
                 },
                 userJoined: (user) => {
                     // a user joined a room
                     let messages = that.state.messages;
-                    //console.log('userJoined');
                     for (let i = 0; i < that.state.userRooms.length; i++) {
                         if (that.state.userRooms[i].id === room.id) {
                             try {
@@ -510,69 +436,6 @@ class App extends React.Component {
         )
     }
 
-    handleCurrentMessage(event) {
-        this.setState({currentMessage: event.target.value})
-    }
-
-    handleAddUser(event) {
-        this.setState({newUser: event.target.value});
-    }
-
-
-
-    addUserToRoom(event) {
-        event.preventDefault();
-        var that = this;
-
-        if (this.state.newUser.trim() !== '') {
-            let newUser = this.state.newUser;
-            this.state.user.addUser(
-                newUser,
-                this.state.userRooms[this.state.selected].id,
-                () => {
-                    console.log(`Added ${this.state.newUser} to room ${this.state.userRooms[this.state.selected].id}`);
-                    let messages = that.state.userRooms;
-                    try {
-
-                        messages[that.state.selected].push({
-                            text: `${this.state.user.id} added ${newUser} to room`,
-                            isAlert: true
-                        });
-                    } catch (e) {
-                        messages[that.state.selected] = [{
-                            text: `${this.state.user.id} added ${newUser} to room`,
-                            isAlert: true
-                        }];
-                    }
-                    that.setState({messages: messages});
-                },
-                (error) => {
-                    console.log(`Error adding ${newUser} to room ${this.state.userRooms[this.state.selected].id}: ${error}`);
-                }
-            );
-            this.setState({newUser: ''});
-        }
-
-    }
-
-    removeDuplicates() {
-        let rooms = this.state.userRooms;
-        let newRooms = [];
-        for (let i = 0; i < rooms.length; i++) {
-            let index = -1;
-            for (let j = 0; j < newRooms.length; j++) {
-                if (rooms[i].id === newRooms[j].id) {
-                    index = i;
-                    break;
-                }
-            }
-            if (index === -1) {
-                newRooms.push(rooms[i]);
-            }
-        }
-        this.setState({userRooms: newRooms});
-    }
-
     reloadPage() {
         document.location.reload();
     }
@@ -580,11 +443,11 @@ class App extends React.Component {
     render() {
         var that = this;
         var data, members;
-        //console.log(this.state.userRooms, this.state.messages);
         if (this.state.messages.length > 0) {
             if (this.state.messages[this.state.selected] !== undefined &&
                 this.state.messages[this.state.selected].length > 0) {
                 try {
+                    // display members of the currently selected rooms
                     members = this.state.userRooms[this.state.selected].userIds
                         .map((id, i) => {
                             if (id === that.state.user.id) {
@@ -597,8 +460,8 @@ class App extends React.Component {
                     members = '';
                 }
 
-
                 try {
+                    // display messages
                     data = this.state.messages[this.state.selected]
                         .map((message, i) => {
 
@@ -629,8 +492,8 @@ class App extends React.Component {
                                 <form onSubmit={this.handleSubmit.bind(this)}>
                                     <input autoFocus="true" className="form-control"
                                            type="text" name="username" value={this.state.username}
-                                           placeholder="Your Username"
-                                           onChange={this.handleUsernamechange.bind(this)} required /><br/>
+                                           placeholder="Enter a nickname"
+                                           onChange={this.handleUsernameChange.bind(this)} required /><br/>
                                     <button type="submit" className="btn btn-primary">
                                         Start Chatting</button>
                                 </form>
@@ -641,7 +504,6 @@ class App extends React.Component {
                     </div>
                 </div>
                 <div className="row">
-
                     <div className="col-sm-4 card" id="rooms">
                         <h3 className="text-center mt-3">Rooms</h3>
                         <br/>

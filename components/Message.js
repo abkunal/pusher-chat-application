@@ -7,9 +7,10 @@ class Message extends React.Component {
         this.received = this.received.bind(this);
     }
 
+    // template for sent messages
     sent() {
+        // set time to the given format
         let time = '';
-
         if (this.props.time !== '') {
             time = new Date(this.props.time).toDateString().substring(4) + ' ' +
                 new Date(this.props.time).toLocaleString().substring(12, 17);
@@ -32,9 +33,9 @@ class Message extends React.Component {
         );
     }
 
+    // template for received messages
     received() {
         let time = '';
-
         if (this.props.time !== '') {
             time = new Date(this.props.time).toDateString().substring(4) + ' ' +
                 new Date(this.props.time).toLocaleString().substring(12, 17);
