@@ -11,11 +11,11 @@ router.post('/', (req, res) => {
         let expire = Math.floor(Date.now() / 1000) + (60 * 60 * 23);
 
         let token = jwt.sign({
-            "app": "6b4c65c1-949b-4807-99ad-d5ad8c8ac52a",
-            "iss": "api_keys/7ba5c242-f840-43a7-8ec1-a4e44b23cc1e",
+            "app": YOUR_INSTANCE_ID,
+            "iss": "api_keys/<KEY_ID>",
             "exp": expire,
             "sub": req.query.user_id
-        }, "1L4Ng1zmBVwpnsQhuIB2nCEAq65WFGEx29+ICjBarQE=")
+        }, YOUR_KEY_SECRET)
 
         let response = {
             "access_token": token,
