@@ -148,7 +148,7 @@ class App extends React.Component {
         });
 
         const chatManager = new Chatkit.ChatManager({
-            instanceLocator: "v1:us1:6b4c65c1-949b-4807-99ad-d5ad8c8ac52a",
+            instanceLocator: YOUR_INSTANCE_LOCATOR,
             tokenProvider: tokenProvider
         });
 
