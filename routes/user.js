@@ -7,8 +7,8 @@ var router = express.Router();
 var Chatkit = require('pusher-chatkit-server');
 
 const chatkit = new Chatkit.default({
-    instanceLocator: "v1:us1:6b4c65c1-949b-4807-99ad-d5ad8c8ac52a",
-    key: "7ba5c242-f840-43a7-8ec1-a4e44b23cc1e:1L4Ng1zmBVwpnsQhuIB2nCEAq65WFGEx29+ICjBarQE="
+    instanceLocator: YOUR_INSTANCE_LOCATOR,
+    key: YOUR_SECRET_KEY
 });
 
 router.get('/', (req, res) => {
